@@ -1,0 +1,210 @@
+---
+title: "03AttributeDataOperations"
+output: html_document
+date: "2025-03-17"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Attribute Data Operations
+
+```{r}
+library(sf)
+library(dplyr)
+library(spData)
+library(terra)
+```
+
+# Attribute Data Manipulation
+
+## Vector attributes
+
+```{r}
+methods(class = 'sf')
+```
+
+```{r}
+class(world)
+dim(world)
+```
+
+> Dropping the geometry
+
+```{r}
+world_df = st_drop_geometry(world)
+class(world_df)
+ncol(world_df)
+```
+
+## Vector Attribute Aggregation
+
+> Only returns DataFrame
+
+```{r}
+world_agg1 = aggregate(pop ~ continent, FUN=sum, data=world,
+                       na.rm = TRUE)
+class(world_agg1)
+```
+
+> Returns geometry as well
+
+```{r}
+world_agg2 = aggregate(world["pop"], by = list(world$continent), FUN=sum,
+                       na.rm=T)
+class(world_agg2)
+nrow(world_agg2)
+```
+
+```{r}
+world_agg3 = world |> 
+  group_by(continent) |> 
+  summarize(pop = sum(pop, na.rm = T))
+class(world_agg3)
+```
+
+```{r}
+world_agg4 = world |> 
+  group_by(continent) |> 
+  summarize(Pop = sum(pop, na.rm = T),
+            Area = sum(area_km2), 
+            N = n())
+class(world_agg4)
+names(world_agg4)
+```
+
+```{r}
+world_agg5 = world |> 
+  st_drop_geometry() |> 
+  select(pop, continent, area_km2) |> 
+  group_by(Continent = continent) |> 
+  summarise(Pop = sum(pop, na.rm=T), 
+            Area = sum(area_km2), 
+            N = n()) |> 
+  mutate(Density = round(Pop / Area)) |> 
+  slice_max(Pop, n = 3) |> 
+  arrange(desc(N))
+world_agg5
+```
+
+## Vector Attribute Joining
+
+```{r}
+world_coffee = left_join(world, coffee_data)
+class(world_coffee)
+```
+
+```{r}
+names(world_coffee)
+plot(world_coffee["coffee_production_2017"])
+```
+
+```{r}
+coffee_renamed = rename(coffee_data, nm = 'name_long')
+world_coffee2 = left_join(world, coffee_renamed, 
+                          by = join_by(name_long == nm))
+```
+
+> Can use `inner_join` to only keep matching rows.
+>
+> Find the difference between list of values in frame
+
+```{r}
+setdiff(coffee_data$name_long, world$name_long)
+```
+
+```{r}
+drc = stringr::str_subset(world$name_long, "Dem*.+Congo")
+drc
+```
+
+```{r}
+coffee_data$name_long[grepl("Congo,", coffee_data$name_long)] = drc
+world_coffee_match = inner_join(world, coffee_data)
+nrow(world_coffee_match)
+```
+
+## Adding attributes
+
+> Using base R
+
+```{r}
+world_new = world
+world_new$pop_dens = world_new$pop / world_new$area_km2
+```
+
+> Using `dplyr`
+
+```{r}
+world_new2 = world |> 
+  mutate(pop_dens = pop / area_km2)
+```
+
+> Using `transmute()` instead drops all other columns (except geom)
+
+> Combining columns
+
+```{r}
+world_united = world |>
+  tidyr::unite("con_reg", continent:region_un, sep = ":", remove = TRUE)
+names(world_united)
+```
+
+```{r}
+world_united[10,c('con_reg')]
+```
+
+> Splitting them
+
+```{r}
+world_separate = world_united |>
+  tidyr::separate(con_reg, c("continent", "region_un"), sep = ":")
+```
+
+# Raster Objects
+
+```{r}
+elev = rast(nrows = 6, ncols = 6,
+            xmin = -1.5, xmax = 1.5, ymin = -1.5, ymax = 1.5,
+            vals = 1:36)
+elev
+```
+
+```{r}
+plot(elev)
+```
+
+> Add categorical data
+
+```{r}
+grain_order = c("clay", "silt", "sand")
+grain_char = sample(grain_order, 36, replace = TRUE)
+grain_fact = factor(grain_char, levels = grain_order)
+grain = rast(nrows = 6, ncols = 6, 
+             xmin = -1.5, xmax = 1.5, ymin = -1.5, ymax = 1.5,
+             vals = grain_fact)
+cats(grain)
+```
+
+```{r}
+levels(grain)
+```
+
+```{r}
+grain2 = grain # do not overwrite the original data
+levels(grain2) = data.frame(value = c(0, 1, 2), wetness = c("wet", "moist", "dry"))
+levels(grain2)
+```
+
+> Summarizing
+
+```{r}
+summary(grain)
+```
+
+> Get a table
+
+```{r}
+freq(grain)
+```
