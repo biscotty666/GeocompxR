@@ -26,6 +26,7 @@
             rPackages.leaflet
             rPackages.XML
             rPackages.lwgeom
+            rPackages.rmapshaper
 #            rPackages.tmap
             rPackages.spData
             rPackages.codetools
