@@ -1,0 +1,163 @@
+---
+title: "05.2-GeometricOperationsVectors"
+output: html_document
+date: "2025-03-19"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(sf)
+library(terra)
+library(dplyr)
+library(spData)
+library(spDataLarge)
+library(tmap)
+```
+
+# Geometry Operations - Raster
+
+## Intersections
+
+> keep the matrix structure after clipping by setting `drop = FALSE`
+
+```{r}
+elev = rast(system.file("raster/elev.tif", package = "spData"))
+clip = rast(xmin = 0.9, xmax = 1.8, ymin = -0.45, ymax = 0.45,
+            resolution = 0.3, vals = rep(1, 9))
+elev[clip, drop = FALSE]
+```
+
+## Extent and origin
+
+```{r}
+elev_2 = extend(elev, c(1,2))
+```
+
+```{r}
+elev_poly = st_as_sf(as.polygons(elev, dissolve=F))
+elev_2_poly = st_as_sf(as.polygons(elev_2, na.rm = F, dissolve = F))
+
+tm1 = tm_shape(elev_poly, bbox = elev_2_poly) +
+  tm_polygons(fill = "elev") +
+  tm_layout(frame = F, legend.show = F)
+
+tm2 = tm_shape(elev_2_poly) +
+  tm_polygons(fill = "elev") +
+  tm_layout(frame = F, legend.show = F)
+
+tmap_arrange(tm1, tm2, nrow = 1)
+```
+
+```         
+elev_3 = elev + elev_2
+#> Error: [+] extents do not match
+```
+
+```{r}
+elev_4 = extend(elev, elev_2)
+origin(elev_4)
+```
+
+```{r}
+origin(elev_4) = c(0.25, 0.25)
+```
+
+```{r}
+elev_poly = st_as_sf(as.polygons(elev, dissolve = FALSE))
+elev4_poly = st_as_sf(as.polygons(elev_4, dissolve = FALSE))
+
+tm_shape(elev4_poly) +
+  tm_grid() +
+  tm_polygons(fill = "elev", lwd = 0.5) +
+  tm_shape(elev_poly) +
+  tm_polygons(fill = "elev") +
+  tm_layout(frame = FALSE, legend.show = FALSE,
+            inner.margins = c(0.1, 0.12, 0, 0))
+```
+
+## Aggregation and disaggregation
+
+```{r}
+dem = rast(system.file("raster/dem.tif", package = "spDataLarge"))
+dem_agg = aggregate(dem, fact = 5, fun = mean)
+```
+
+```{r}
+p_ar1 = tm_shape(dem) +
+  tm_raster(col.scale = tm_scale_continuous()) +
+  tm_title("A. Original") + 
+  tm_layout(frame = FALSE, legend.show = FALSE)
+p_ar2 = tm_shape(dem_agg) +
+  tm_raster(col.scale = tm_scale_continuous()) +
+  tm_title("B. Aggregated") +
+  tm_layout(frame = FALSE, legend.show = FALSE)
+tmap_arrange(p_ar1, p_ar2, ncol = 2)
+```
+
+```{r}
+dem_disagg = disagg(dem_agg, fact = 5, method = "bilinear")
+identical(dem, dem_disagg)
+```
+
+## Resampling
+
+> When two rasters have different resolutions and origins
+
+There are several methods for estimating values for a raster with different resolutions/origins, as shown in Figure [5.18](https://r.geocompx.org/geometry-operations#fig:resampl). The main resampling methods include:
+
+-   Nearest neighbor: assigns the value of the nearest cell of the original raster to the cell of the target one. This is a fast simple technique that is usually suitable for resampling categorical rasters.
+
+-   Bilinear interpolation: assigns a weighted average of the four nearest cells from the original raster to the cell of the target one (Figure [5.16](https://r.geocompx.org/geometry-operations#fig:bilinear)). This is the fastest method that is appropriate for continuous rasters.
+
+-   Cubic interpolation: uses values of the 16 nearest cells of the original raster to determine the output cell value, applying third-order polynomial functions. Used for continuous rasters and results in a smoother surface compared to bilinear interpolation but is computationally more demanding.
+
+-   Cubic spline interpolation: also uses values of the 16 nearest cells of the original raster to determine the output cell value, but applies cubic splines (piece-wise third-order polynomial functions). Used for continuous rasters.
+
+-   Lanczos windowed sinc resampling: uses values of the 36 nearest cells of the original raster to determine the output cell value. Used for continuous rasters.^2^
+
+To apply resampling, the **terra** package provides a [`resample()`](https://rspatial.github.io/terra/reference/resample.html) function. It accepts an input raster (`x`), a raster with target spatial properties (`y`), and a resampling method (`method`).
+
+```{r}
+target_rast = rast(xmin = 794650, xmax = 798250, 
+                   ymin = 8931750, ymax = 8935350,
+                   resolution = 300, crs = "EPSG:32717")
+dem_resampl = resample(dem, y = target_rast, method = "bilinear")
+```
+
+```{r}
+dem_resampl1 = resample(dem, target_rast, method = "near")
+dem_resampl2 = resample(dem, target_rast, method = "bilinear")
+dem_resampl3 = resample(dem, target_rast, method = "cubic")
+dem_resampl4 = resample(dem, target_rast, method = "cubicspline")
+dem_resampl5 = resample(dem, target_rast, method = "lanczos")
+
+library(tmap)
+tm1 = tm_shape(dem) +
+  tm_raster(col.scale = tm_scale(breaks = seq(200, 1100, by = 150))) +
+  tm_title("Original raster") +
+  tm_layout(frame = FALSE, legend.show = FALSE)
+tm2 = tm_shape(dem_resampl1) +
+  tm_raster(col.scale = tm_scale(breaks = seq(200, 1100, by = 150))) +
+  tm_title("near") +
+  tm_layout(frame = FALSE, legend.show = FALSE)
+tm3 = tm_shape(dem_resampl2) +
+  tm_raster(col.scale = tm_scale(breaks = seq(200, 1100, by = 150))) +
+  tm_title("bilinear") +
+  tm_layout(frame = FALSE, legend.show = FALSE)
+tm4 = tm_shape(dem_resampl3) +
+  tm_raster(col.scale = tm_scale(breaks = seq(200, 1100, by = 150))) +
+  tm_title("cubic") +
+  tm_layout(frame = FALSE, legend.show = FALSE)
+tm5 = tm_shape(dem_resampl4) +
+  tm_raster(col.scale = tm_scale(breaks = seq(200, 1100, by = 150))) +
+  tm_title("cubicspline") +
+  tm_layout(frame = FALSE, legend.show = FALSE)
+tm6 = tm_shape(dem_resampl5) +
+  tm_raster(col.scale = tm_scale(breaks = seq(200, 1100, by = 150))) +
+  tm_title("lanczos") +
+  tm_layout(frame = FALSE, legend.show = FALSE)
+tmap_arrange(tm1, tm2, tm3, tm4, tm5, tm6)
+```
