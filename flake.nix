@@ -36,6 +36,10 @@
             rPackages.mapdeck
             rPackages.ggspatial
             rPackages.cartogram
+#            rPackages.USAboundaries
+            rPackages.gifski
+            rPackages.historydata
+            rPackages.viridis
 #            rPackages.tmap
             rPackages.spData
             rPackages.codetools
