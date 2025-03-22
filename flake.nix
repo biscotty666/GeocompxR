@@ -25,8 +25,17 @@
             rPackages.terra
             rPackages.leaflet
             rPackages.XML
+            rPackages.rnaturalearth
+            rPackages.rnaturalearthdata
+            rPackages.osmdata
             rPackages.lwgeom
             rPackages.rmapshaper
+            rPackages.rcartocolor
+            rPackages.shiny
+            rPackages.mapview
+            rPackages.mapdeck
+            rPackages.ggspatial
+            rPackages.cartogram
 #            rPackages.tmap
             rPackages.spData
             rPackages.codetools
