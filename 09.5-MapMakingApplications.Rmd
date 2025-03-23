@@ -1,0 +1,94 @@
+---
+title: "09.2-MapMakingStatic"
+runtime: shiny
+output: html_document
+date: "2025-03-22"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Mapping applications
+
+```{r}
+library(shiny)
+library(leaflet)
+library(spData) 
+```
+
+```{r}
+ui = fluidPage(
+  sliderInput(inputId = "life", "Life expectancy", 49, 84, value = 80),
+      leafletOutput(outputId = "map")
+  )
+server = function(input, output) {
+  output$map = renderLeaflet({
+    leaflet() |> 
+      # addProviderTiles("OpenStreetMap.BlackAndWhite") |>
+      addPolygons(data = world[world$lifeExp < input$life, ])})
+}
+shinyApp(ui, server)
+```
+
+```{r}
+library(ggplot2)
+g1 = ggplot() + geom_sf(data = nz, aes(fill = Median_income)) +
+  geom_sf(data = nz_height) +
+  scale_x_continuous(breaks = c(170, 175))
+g1
+```
+
+```{r}
+library(ggspatial)
+nz_elev = rast(system.file("raster/nz_elev.tif", package = "spDataLarge"))
+g2 = ggplot() + 
+  layer_spatial(nz_elev) +
+  geom_sf(data = nz, fill = NA) +
+  annotation_scale() +
+  scale_x_continuous(breaks = c(170, 175)) +
+  scale_fill_continuous(na.value = NA)
+g2
+```
+
+```{r}
+library(cartogram)
+library(tmap)
+nz_carto = cartogram_cont(nz, "Median_income", itermax = 5)
+carto_map1 = tm_shape(nz) +
+  tm_polygons("Median_income", 
+              fill.scale = tm_scale(values = "brewer.greens"), 
+              fill.legend = tm_legend_hide())
+carto_map2 = tm_shape(nz_carto) +
+  tm_polygons("Median_income", 
+              fill.scale = tm_scale(values = "brewer.greens"), 
+              fill.legend = tm_legend(title = "Med Income (NZD)",
+                                      position = c("right", "bottom")))
+tmap_arrange(carto_map1, carto_map2)
+```
+
+```{r}
+us_states9311 = st_transform(us_states, "EPSG:9311")
+us_states9311_ncont = cartogram_ncont(us_states9311, "total_pop_15")
+us_states9311_dorling = cartogram_dorling(us_states9311, "total_pop_15")
+```
+
+```{r}
+carto_map3 = tm_shape(us_states9311_ncont) + 
+  tm_polygons("total_pop_15",
+              fill.scale = tm_scale(values = "brewer.bu_pu"),
+              fill.legend = tm_legend(title = "Total population")) +
+  tm_layout(legend.show = FALSE)
+carto_map4 = tm_shape(us_states9311_dorling) + 
+  tm_polygons("total_pop_15",
+              fill.scale = tm_scale(values = "brewer.bu_pu"),
+              fill.legend = tm_legend(title = "Total population")) +
+  tm_layout(legend.show = FALSE)
+carto_map_34legend = tm_shape(us_states9311_dorling) + 
+  tm_polygons("total_pop_15",
+              fill.scale = tm_scale(values = "brewer.bu_pu"),
+              fill.legend = tm_legend(title = "Total population")) +
+  tm_layout(legend.only = TRUE)
+tmap_arrange(carto_map3, carto_map4, carto_map_34legend,
+             widths = c(0.4, 0.4, 0.2), ncol = 3)
+```

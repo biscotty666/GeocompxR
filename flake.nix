@@ -24,6 +24,8 @@
             rPackages.sf
             rPackages.terra
             rPackages.leaflet
+            rPackages.leaflet_extras
+            rPackages.leaflet_extras2
             rPackages.XML
             rPackages.rnaturalearth
             rPackages.rnaturalearthdata
