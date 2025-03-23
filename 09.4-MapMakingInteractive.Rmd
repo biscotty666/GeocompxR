@@ -1,0 +1,83 @@
+---
+title: "09.2-MapMakingStatic"
+output: html_document
+date: "2025-03-22"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Map Making Interactive
+
+```{r}
+library(sf)
+library(terra)
+library(dplyr)
+library(spData)
+library(spDataLarge)
+library(tmap)
+library(leaflet)
+library(ggplot2)
+```
+
+```{r}
+tmap_mode("view")
+map_nz = tm_shape(nz) + tm_polygons()
+map_nz
+```
+
+```{r}
+lmap_nz = tmap_leaflet(map_nz)
+lmap_nz
+```
+
+> Multiple maps with synchronized zoom and pan
+
+```{r}
+world_coffee = left_join(world, coffee_data, by = "name_long")
+facets = c("coffee_production_2016", "coffee_production_2017")
+wc = tm_shape(world_coffee) +
+  tm_polygons(facets) +
+  tm_facets_wrap(nrow = 1, sync = TRUE)
+wcl = tmap_leaflet(wc)
+wcl
+```
+
+```{r}
+tmap_mode("plot")
+```
+
+> mapview
+
+```{r}
+nzm = mapview::mapview(nz)
+```
+
+```{r}
+library(mapview)
+library(leaflet.extras)
+#tmap_mode("view")
+oberfranken = subset(franconia, district == "Oberfranken")
+obbrew = trails |> 
+  st_transform(st_crs(oberfranken)) |> 
+  st_intersection(oberfranken) |> 
+  st_collection_extract("LINESTRING") |> 
+  mapview(color = "red", lwd = 3, layer.name = "trails") +
+  mapview(franconia, zcol = "district") +
+  breweries
+obbrew@map |> leaflet.extras::addFullscreenControl()
+```
+
+> Leaflet
+
+```{r}
+pal = colorNumeric("RdYlBu", domain = cycle_hire$nbikes)
+leaflet(data = cycle_hire) |> 
+  addProviderTiles(providers$CartoDB.Voyager) |> 
+  addCircles(col = ~pal(nbikes), opacity = 0.9) |> 
+  addPolygons(data = lnd, fill = FALSE) |> 
+  addLegend(pal = pal, values = ~nbikes) |> 
+  setView(lng = -0.1, 51.5, zoom = 12) |> 
+  addMiniMap()
+```
